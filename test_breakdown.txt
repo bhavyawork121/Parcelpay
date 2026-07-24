@@ -1,0 +1,12 @@
+True: D1016663145 | Pred: 91222
+True: 8105841107[UNK] | Pred: 2
+True: 9819702282[UNK] | Pred: 911116222
+True: 7X117696292 | Pred: 9
+True: Z1002531847 | Pred: 911122
+True: 9811937519[UNK] | Pred: 911262
+True: 7248360248[UNK] | Pred: 91
+True: D1017966476 | Pred: 922
+True: D1017342419 | Pred: 9106262
+
+Character-level accuracy: 0.0957
+Exact-match accuracy: 0.0000
