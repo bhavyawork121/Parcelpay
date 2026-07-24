@@ -1,0 +1,17 @@
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "text": "Return ONLY a JSON object with fields: phone_number, recipient_name, address, confidence, raw_text_seen"
+        },
+        {
+          "inline_data": {
+            "mime_type": "image/png",
+            "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+          }
+        }
+      ]
+    }
+  ]
+}
