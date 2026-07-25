@@ -47,9 +47,11 @@ fun NavGraph() {
         ) { backStackEntry ->
             val imagePath = backStackEntry.arguments?.getString("imagePath") ?: ""
             val reviewViewModel: ReviewViewModel = viewModel()
+            val settingsViewModel: com.parcelpay.app.viewmodel.SettingsViewModel = viewModel()
             ReviewScreen(
                 photoPath = imagePath,
                 viewModel = reviewViewModel,
+                settingsViewModel = settingsViewModel,
                 onBack = { navController.popBackStack() },
                 onSend = { phone ->
                     reviewViewModel.saveParcelToSupabase(phone)

@@ -32,11 +32,13 @@ import java.io.File
 fun ReviewScreen(
     photoPath: String?,
     viewModel: ReviewViewModel,
+    settingsViewModel: com.parcelpay.app.viewmodel.SettingsViewModel,
     onSend: (String) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val qrImagePath by settingsViewModel.qrImagePath.collectAsState()
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
     var showSuccess by remember { mutableStateOf(false) }
@@ -57,7 +59,36 @@ fun ReviewScreen(
                     modifier = Modifier.size(100.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Opening WhatsApp...", style = MaterialTheme.typography.titleLarge)
+                Text("WhatsApp Opened", style = MaterialTheme.typography.titleLarge)
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = {
+                        if (qrImagePath == null) {
+                            android.widget.Toast.makeText(context, "Please set up your Payment QR in Settings first.", android.widget.Toast.LENGTH_LONG).show()
+                        } else {
+                            try {
+                                val parcelUri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", File(photoPath!!))
+                                val qrUri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", File(qrImagePath!!))
+                                
+                                val uris = arrayListOf(parcelUri, qrUri)
+                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
+                                    type = "image/*"
+                                    setPackage("com.whatsapp")
+                                    putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
+                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(intent)
+                                onSend(uiState.enteredNumber)
+                            } catch (e: Exception) {
+                                android.util.Log.e("WhatsApp", "Share images failed", e)
+                                android.widget.Toast.makeText(context, "Failed to share images. Is WhatsApp installed?", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(0.8f).height(56.dp)
+                ) {
+                    Text("Share Images", style = MaterialTheme.typography.titleMedium)
+                }
             }
         }
         return
@@ -189,9 +220,6 @@ fun ReviewScreen(
                                     )
                                     context.startActivity(fbIntent)
                                 }
-                                
-                                delay(1000)
-                                onSend(uiState.enteredNumber) 
                             }
                         }
                     },
