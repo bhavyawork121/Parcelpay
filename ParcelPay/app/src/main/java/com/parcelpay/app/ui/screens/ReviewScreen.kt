@@ -8,22 +8,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.parcelpay.app.viewmodel.ReviewViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -41,14 +39,12 @@ fun ReviewScreen(
     val qrImagePath by settingsViewModel.qrImagePath.collectAsState()
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
-    var step by remember { androidx.compose.runtime.mutableIntStateOf(1) }
 
     LaunchedEffect(photoPath) {
         if (photoPath != null) {
             viewModel.processImage(context, photoPath)
         }
     }
-
 
     Scaffold(
         topBar = {
@@ -64,6 +60,7 @@ fun ReviewScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(8.dp))
+
             if (photoPath != null) {
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -80,7 +77,7 @@ fun ReviewScreen(
             } else {
                 Text("No Photo Provided")
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
 
             if (uiState.isProcessing || uiState.isAiFallback) {
@@ -88,6 +85,7 @@ fun ReviewScreen(
                 val loadingText = if (uiState.isAiFallback) "Asking AI to read the label…" else "Reading number…"
                 Text(loadingText, modifier = Modifier.padding(top = 8.dp))
             } else {
+                // Error card
                 if (uiState.error != null) {
                     Card(
                         shape = RoundedCornerShape(8.dp),
@@ -95,7 +93,11 @@ fun ReviewScreen(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Text(uiState.error!!, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                uiState.error!!,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
                             Button(
                                 onClick = { if (photoPath != null) viewModel.processImage(context, photoPath, true) },
@@ -107,6 +109,7 @@ fun ReviewScreen(
                     }
                 }
 
+                // Multiple candidate chips
                 if (uiState.candidates.size > 1) {
                     Text("Multiple numbers found. Select one:", style = MaterialTheme.typography.bodyMedium)
                     LazyRow(
@@ -127,19 +130,18 @@ fun ReviewScreen(
                     }
                 }
 
+                // Phone number field
                 OutlinedTextField(
                     value = uiState.enteredNumber,
                     onValueChange = { viewModel.updateEnteredNumber(it) },
                     label = { Text("Phone Number") },
-                    trailingIcon = {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit Number")
-                    },
+                    trailingIcon = { Icon(Icons.Default.Edit, contentDescription = "Edit Number") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
                 )
-                
+
                 val isValidFormat = uiState.enteredNumber.length == 10
                 if (uiState.enteredNumber.isNotEmpty() && !isValidFormat) {
                     Text(
@@ -149,7 +151,8 @@ fun ReviewScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
                     )
                 }
-                
+
+                // AI extracted info
                 if (uiState.recipientName != null || uiState.address != null) {
                     Spacer(modifier = Modifier.height(16.dp))
                     Card(
@@ -158,115 +161,112 @@ fun ReviewScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Text("AI Extracted Info (Sanity Check):", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            Text("AI Extracted Info:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(4.dp))
-                            if (uiState.recipientName != null) {
-                                Text("Name: ${uiState.recipientName}", style = MaterialTheme.typography.bodyMedium)
-                            }
-                            if (uiState.address != null) {
-                                Text("Address: ${uiState.address}", style = MaterialTheme.typography.bodyMedium)
-                            }
+                            if (uiState.recipientName != null) Text("Name: ${uiState.recipientName}", style = MaterialTheme.typography.bodyMedium)
+                            if (uiState.address != null) Text("Address: ${uiState.address}", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
-                
-                if (step == 1) {
-                    Button(
-                        onClick = { 
-                            if (isValidFormat) {
-                                coroutineScope.launch {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    
-                                    if (qrImagePath == null) {
-                                        android.widget.Toast.makeText(context, "Please set up your Payment QR in Settings first.", android.widget.Toast.LENGTH_LONG).show()
-                                        return@launch
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // ── PRIMARY ACTION: Share Images ─────────────────────────────────────────
+                // Launched while the app is still in the FOREGROUND → always works on all
+                // Android versions. Android's background-activity restriction never fires.
+                Button(
+                    onClick = {
+                        if (isValidFormat) {
+                            coroutineScope.launch {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (qrImagePath == null) {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Please set up your Payment QR in Settings first.",
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                    return@launch
+                                }
+                                try {
+                                    val uris = arrayListOf<android.net.Uri>()
+                                    // Attach parcel photo if available
+                                    if (!photoPath.isNullOrEmpty()) {
+                                        val parcelFile = File(photoPath)
+                                        if (parcelFile.exists()) {
+                                            uris.add(
+                                                androidx.core.content.FileProvider.getUriForFile(
+                                                    context, "${context.packageName}.provider", parcelFile
+                                                )
+                                            )
+                                        }
                                     }
-                                    
-                                    try {
-                                        val viewIntent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                            data = android.net.Uri.parse("https://api.whatsapp.com/send?phone=91${uiState.enteredNumber}")
-                                            setPackage("com.whatsapp")
-                                        }
-                                        context.startActivity(viewIntent)
-                                        
-                                        kotlinx.coroutines.delay(400)
-                                        
-                                        val uris = arrayListOf<android.net.Uri>()
-                                        if (!photoPath.isNullOrEmpty()) {
-                                            val parcelFile = File(photoPath)
-                                            if (parcelFile.exists()) {
-                                                uris.add(androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", parcelFile))
-                                            }
-                                        }
-                                        uris.add(androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", File(qrImagePath!!)))
-                                        
-                                        val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
-                                            type = "image/*"
-                                            setPackage("com.whatsapp")
-                                            putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
-                                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        context.startActivity(sendIntent)
-                                        onSend(uiState.enteredNumber)
-                                        step = 2
-                                    } catch (e: Exception) {
-                                        android.util.Log.e("WhatsApp", "Auto-chain failed or open chat failed", e)
-                                        step = 2 // Fallback to manual Share Images
+                                    // Always attach QR image
+                                    uris.add(
+                                        androidx.core.content.FileProvider.getUriForFile(
+                                            context, "${context.packageName}.provider", File(qrImagePath!!)
+                                        )
+                                    )
+                                    val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
+                                        type = "image/*"
+                                        setPackage("com.whatsapp")
+                                        putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
+                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                     }
+                                    context.startActivity(sendIntent)
+                                    onSend(uiState.enteredNumber)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("WhatsApp", "Share images failed", e)
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Failed to share to WhatsApp. Is it installed?",
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
                                 }
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        enabled = uiState.enteredNumber.isNotEmpty() && isValidFormat,
-                        shape = RoundedCornerShape(28.dp)
-                    ) {
-                        Text("Send to WhatsApp", style = MaterialTheme.typography.titleMedium)
-                    }
-                } else {
-                    Button(
-                        onClick = { 
-                            if (isValidFormat) {
-                                coroutineScope.launch {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    
-                                    if (qrImagePath == null) {
-                                        android.widget.Toast.makeText(context, "Please set up your Payment QR in Settings first.", android.widget.Toast.LENGTH_LONG).show()
-                                    } else {
-                                        try {
-                                            val uris = arrayListOf<android.net.Uri>()
-                                            if (!photoPath.isNullOrEmpty()) {
-                                                val parcelFile = File(photoPath)
-                                                if (parcelFile.exists()) {
-                                                    uris.add(androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", parcelFile))
-                                                }
-                                            }
-                                            uris.add(androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", File(qrImagePath!!)))
-                                            
-                                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
-                                                type = "image/*"
-                                                setPackage("com.whatsapp")
-                                                putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
-                                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            }
-                                            context.startActivity(intent)
-                                            onSend(uiState.enteredNumber)
-                                        } catch (e: Exception) {
-                                            android.util.Log.e("WhatsApp", "Share images failed", e)
-                                            android.widget.Toast.makeText(context, "Failed to send to WhatsApp. Is it installed?", android.widget.Toast.LENGTH_LONG).show()
-                                        }
-                                    }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    enabled = uiState.enteredNumber.isNotEmpty() && isValidFormat,
+                    shape = RoundedCornerShape(28.dp)
+                ) {
+                    Text("Send Images to WhatsApp", style = MaterialTheme.typography.titleMedium)
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "In WhatsApp's share screen, search for the number above — it'll be at the top if you've chatted before.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // ── SECONDARY ACTION: Open chat directly (optional convenience) ──────────
+                OutlinedButton(
+                    onClick = {
+                        if (isValidFormat) {
+                            try {
+                                val chatIntent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                    data = android.net.Uri.parse("https://api.whatsapp.com/send?phone=91${uiState.enteredNumber}")
+                                    setPackage("com.whatsapp")
                                 }
+                                context.startActivity(chatIntent)
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Failed to open WhatsApp. Is it installed?",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        enabled = uiState.enteredNumber.isNotEmpty() && isValidFormat,
-                        shape = RoundedCornerShape(28.dp)
-                    ) {
-                        Text("Share Images", style = MaterialTheme.typography.titleMedium)
-                    }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    enabled = uiState.enteredNumber.isNotEmpty() && isValidFormat,
+                    shape = RoundedCornerShape(28.dp)
+                ) {
+                    Text("Open WhatsApp Chat  (+91 ${uiState.enteredNumber})")
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
