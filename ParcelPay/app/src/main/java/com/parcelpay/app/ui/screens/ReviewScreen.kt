@@ -211,6 +211,10 @@ fun ReviewScreen(
                                         setPackage("com.whatsapp")
                                         putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
                                         addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        // jid pre-selects the contact in WhatsApp.
+                                        // Undocumented but works on most WhatsApp versions.
+                                        // If WhatsApp ignores it, the share picker opens — images still attach.
+                                        putExtra("jid", "91${uiState.enteredNumber}@s.whatsapp.net")
                                     }
                                     context.startActivity(sendIntent)
                                     onSend(uiState.enteredNumber)
