@@ -6,6 +6,9 @@ import android.util.Base64
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.parcelpay.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,25 +28,51 @@ class ReviewViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(ReviewUiState())
     val uiState: StateFlow<ReviewUiState> = _uiState.asStateFlow()
 
+    private val textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private val okHttpClient = OkHttpClient()
 
     fun processImage(context: Context, imagePath: String, forceFallback: Boolean = false) {
         if (_uiState.value.isProcessing || _uiState.value.isAiFallback) return
         
-        _uiState.value = _uiState.value.copy(isAiFallback = true, error = null)
+        if (forceFallback) {
+            _uiState.value = _uiState.value.copy(isAiFallback = true, error = null)
+        } else {
+            _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
+        }
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val file = File(imagePath)
                 if (!file.exists()) {
-                    _uiState.value = _uiState.value.copy(isAiFallback = false, error = "File not found")
+                    _uiState.value = _uiState.value.copy(isProcessing = false, isAiFallback = false, error = "File not found")
+                    return@launch
+                }
+                
+                if (forceFallback) {
+                    runAiFallback(file.absolutePath)
                     return@launch
                 }
 
-                runAiFallback(file.absolutePath)
+                val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                val originalImage = InputImage.fromBitmap(bitmap, 0)
+                val visionText = textRecognizer.process(originalImage).await()
+                
+                val candidatesList = extractPhoneNumbers(visionText.text)
+                
+                if (candidatesList.isEmpty()) {
+                    runAiFallback(file.absolutePath)
+                } else {
+                    val defaultNumber = if (candidatesList.size == 1) candidatesList.first() else ""
+                    _uiState.value = _uiState.value.copy(
+                        isProcessing = false,
+                        rawText = visionText.text,
+                        candidates = candidatesList,
+                        enteredNumber = defaultNumber
+                    )
+                }
             } catch (e: Exception) {
                 Log.e("ReviewViewModel", "Image processing failed", e)
-                _uiState.value = _uiState.value.copy(isAiFallback = false, error = e.message)
+                _uiState.value = _uiState.value.copy(isProcessing = false, isAiFallback = false, error = e.message)
             }
         }
     }
@@ -83,16 +112,35 @@ class ReviewViewModel : ViewModel() {
                 })
             }
             
-            val apiKey = BuildConfig.GEMINI_API_KEY
+            var apiKey = BuildConfig.GEMINI_API_KEY
+            var usedKey = "GEMINI_API_KEY"
             // NOTE: If this app is ever shared beyond one device, the API key should move to a small backend proxy instead of living inside the app directly!
-            val request = Request.Builder()
+            var request = Request.Builder()
                 .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey")
                 .addHeader("content-type", "application/json")
                 .post(jsonPayload.toString().toRequestBody("application/json".toMediaType()))
                 .build()
                 
-            val response = okHttpClient.newCall(request).execute()
+            var response = okHttpClient.newCall(request).execute()
+            
+            if (response.code == 429) {
+                val apiKey2 = BuildConfig.GEMINI_API_KEY_2
+                if (apiKey2.isNotEmpty()) {
+                    Log.i("ReviewViewModel", "Primary key quota exhausted. Failing over to GEMINI_API_KEY_2...")
+                    apiKey = apiKey2
+                    usedKey = "GEMINI_API_KEY_2"
+                    request = Request.Builder()
+                        .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey")
+                        .addHeader("content-type", "application/json")
+                        .post(jsonPayload.toString().toRequestBody("application/json".toMediaType()))
+                        .build()
+                    response.close() // Close the previous response body
+                    response = okHttpClient.newCall(request).execute()
+                }
+            }
+            
             if (response.isSuccessful) {
+                Log.i("ReviewViewModel", "Successfully generated AI response using $usedKey")
                 val body = response.body?.string() ?: ""
                 val jsonResponse = JSONObject(body)
                 val candidatesArray = jsonResponse.getJSONArray("candidates")
@@ -123,12 +171,20 @@ class ReviewViewModel : ViewModel() {
                     address = address
                 )
             } else {
-                Log.e("ReviewViewModel", "AI API error: ${response.code} ${response.body?.string()}")
-                _uiState.value = _uiState.value.copy(isProcessing = false, isAiFallback = false)
+                val errorMsg = when (response.code) {
+                    429 -> "Quota exceeded / Rate limited. Please try again later."
+                    401, 403 -> "Authentication failed. Check API key."
+                    else -> "AI service error: HTTP ${response.code}"
+                }
+                Log.e("ReviewViewModel", "AI API error: $errorMsg ${response.body?.string()}")
+                _uiState.value = _uiState.value.copy(isProcessing = false, isAiFallback = false, error = errorMsg)
             }
+        } catch (e: java.io.IOException) {
+            Log.e("ReviewViewModel", "AI network error", e)
+            _uiState.value = _uiState.value.copy(isProcessing = false, isAiFallback = false, error = "Network error: Couldn't reach AI service.")
         } catch (e: Exception) {
             Log.e("ReviewViewModel", "AI fallback failed", e)
-            _uiState.value = _uiState.value.copy(isProcessing = false, isAiFallback = false)
+            _uiState.value = _uiState.value.copy(isProcessing = false, isAiFallback = false, error = "AI parsing failed: ${e.message}")
         }
     }
 
@@ -159,6 +215,11 @@ class ReviewViewModel : ViewModel() {
         // NOTE: Cloud sync (if wanted later) needs a backend proxy holding the key server-side.
         // Never ship a service-role key inside the app.
         Log.i("ReviewViewModel", "Cloud sync is disabled. Need a backend proxy to securely handle API keys.")
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        textRecognizer.close()
     }
 }
 

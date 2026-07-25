@@ -49,50 +49,6 @@ fun ReviewScreen(
         }
     }
 
-    if (showSuccess) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Success",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(100.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("WhatsApp Opened", style = MaterialTheme.typography.titleLarge)
-                Spacer(modifier = Modifier.height(32.dp))
-                Button(
-                    onClick = {
-                        if (qrImagePath == null) {
-                            android.widget.Toast.makeText(context, "Please set up your Payment QR in Settings first.", android.widget.Toast.LENGTH_LONG).show()
-                        } else {
-                            try {
-                                val parcelUri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", File(photoPath!!))
-                                val qrUri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", File(qrImagePath!!))
-                                
-                                val uris = arrayListOf(parcelUri, qrUri)
-                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
-                                    type = "image/*"
-                                    setPackage("com.whatsapp")
-                                    putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
-                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(intent)
-                                onSend(uiState.enteredNumber)
-                            } catch (e: Exception) {
-                                android.util.Log.e("WhatsApp", "Share images failed", e)
-                                android.widget.Toast.makeText(context, "Failed to share images. Is WhatsApp installed?", android.widget.Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(0.8f).height(56.dp)
-                ) {
-                    Text("Share Images", style = MaterialTheme.typography.titleMedium)
-                }
-            }
-        }
-        return
-    }
 
     Scaffold(
         topBar = {
@@ -132,6 +88,25 @@ fun ReviewScreen(
                 val loadingText = if (uiState.isAiFallback) "Asking AI to read the label…" else "Reading number…"
                 Text(loadingText, modifier = Modifier.padding(top = 8.dp))
             } else {
+                if (uiState.error != null) {
+                    Card(
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(uiState.error!!, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = { if (photoPath != null) viewModel.processImage(context, photoPath, true) },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Retry AI Scan", color = MaterialTheme.colorScheme.onError)
+                            }
+                        }
+                    }
+                }
+
                 if (uiState.candidates.size > 1) {
                     Text("Multiple numbers found. Select one:", style = MaterialTheme.typography.bodyMedium)
                     LazyRow(
@@ -199,26 +174,36 @@ fun ReviewScreen(
                 
                 Button(
                     onClick = { 
-                        if (isValidFormat && photoPath != null) {
+                        if (isValidFormat) {
                             coroutineScope.launch {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                showSuccess = true
                                 
-                                try {
-                                    val intent = android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse("https://api.whatsapp.com/send?phone=91${uiState.enteredNumber}")
-                                    ).apply {
-                                        setPackage("com.whatsapp")
+                                if (qrImagePath == null) {
+                                    android.widget.Toast.makeText(context, "Please set up your Payment QR in Settings first.", android.widget.Toast.LENGTH_LONG).show()
+                                } else {
+                                    try {
+                                        val uris = arrayListOf<android.net.Uri>()
+                                        if (!photoPath.isNullOrEmpty()) {
+                                            val parcelFile = File(photoPath)
+                                            if (parcelFile.exists()) {
+                                                uris.add(androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", parcelFile))
+                                            }
+                                        }
+                                        uris.add(androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.provider", File(qrImagePath!!)))
+                                        
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND_MULTIPLE).apply {
+                                            type = "image/*"
+                                            setPackage("com.whatsapp")
+                                            putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
+                                            putExtra("jid", "91${uiState.enteredNumber}@s.whatsapp.net")
+                                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(intent)
+                                        onSend(uiState.enteredNumber)
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("WhatsApp", "Share images failed", e)
+                                        android.widget.Toast.makeText(context, "Failed to send to WhatsApp. Is it installed?", android.widget.Toast.LENGTH_LONG).show()
                                     }
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    android.util.Log.e("WhatsApp", "Share failed", e)
-                                    val fbIntent = android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW, 
-                                        android.net.Uri.parse("https://api.whatsapp.com/send?phone=91${uiState.enteredNumber}")
-                                    )
-                                    context.startActivity(fbIntent)
                                 }
                             }
                         }

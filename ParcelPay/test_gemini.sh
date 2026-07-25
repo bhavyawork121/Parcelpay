@@ -1,6 +1,6 @@
 #!/bin/bash
 API_KEY="${GEMINI_API_KEY:?Set GEMINI_API_KEY env var}"
-URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}"
+URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}"
 
 # Create a small dummy base64 image (1x1 pixel)
 IMG_B64="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="

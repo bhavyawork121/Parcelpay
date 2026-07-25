@@ -23,8 +23,10 @@ android {
             properties.load(localPropertiesFile.inputStream())
         }
         val geminiKey = properties.getProperty("GEMINI_API_KEY") ?: ""
+        val geminiKey2 = properties.getProperty("GEMINI_API_KEY_2") ?: ""
         
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
+        buildConfigField("String", "GEMINI_API_KEY_2", "\"$geminiKey2\"")
         
         vectorDrawables {
             useSupportLibrary = true

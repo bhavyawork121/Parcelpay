@@ -183,6 +183,15 @@ fun HomeScreen(
             }
             
             Spacer(modifier = Modifier.height(16.dp))
+            
+            // Copyright notice
+            Text(
+                text = "© 2026 ParcelPay. All rights reserved.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }
