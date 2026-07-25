@@ -1,94 +1,65 @@
 package com.parcelpay.app.ui.navigation
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import com.parcelpay.app.ui.screens.CaptureScreen
-import com.parcelpay.app.ui.screens.HomeScreen
-import com.parcelpay.app.ui.screens.ReviewScreen
-import com.parcelpay.app.ui.screens.SettingsScreen
-import com.parcelpay.app.viewmodel.ParcelPayViewModel
+import androidx.navigation.navArgument
+import com.parcelpay.app.ui.screens.*
+import com.parcelpay.app.viewmodel.ReviewViewModel
 
 @Composable
-fun ParcelPayNavGraph(
-    navController: NavHostController = rememberNavController(),
-    viewModel: ParcelPayViewModel = viewModel()
-) {
+fun NavGraph() {
+    val navController = rememberNavController()
+    
     NavHost(
         navController = navController,
         startDestination = "home",
-        enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)) },
-        exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)) },
-        popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)) },
-        popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)) }
+        enterTransition = { slideInHorizontally(initialOffsetX = { 1000 }, animationSpec = tween(400)) + fadeIn(animationSpec = tween(400)) },
+        exitTransition = { slideOutHorizontally(targetOffsetX = { -1000 }, animationSpec = tween(400)) + fadeOut(animationSpec = tween(400)) },
+        popEnterTransition = { slideInHorizontally(initialOffsetX = { -1000 }, animationSpec = tween(400)) + fadeIn(animationSpec = tween(400)) },
+        popExitTransition = { slideOutHorizontally(targetOffsetX = { 1000 }, animationSpec = tween(400)) + fadeOut(animationSpec = tween(400)) }
     ) {
         composable("home") {
             HomeScreen(
                 onNavigateToCapture = { navController.navigate("capture") },
-                onNavigateToHistory = { navController.navigate("history") },
                 onNavigateToSettings = { navController.navigate("settings") }
             )
         }
-        composable("settings") {
-            val settingsViewModel: com.parcelpay.app.viewmodel.SettingsViewModel = viewModel()
-            SettingsScreen(
-                viewModel = settingsViewModel,
-                onBack = { navController.popBackStack() }
-            )
-        }
-        composable("history") {
-            val historyViewModel: com.parcelpay.app.viewmodel.HistoryViewModel = viewModel()
-            val settingsViewModel: com.parcelpay.app.viewmodel.SettingsViewModel = viewModel()
-            com.parcelpay.app.ui.screens.HistoryScreen(
-                viewModel = historyViewModel,
-                settingsViewModel = settingsViewModel,
-                onBack = { navController.popBackStack() }
-            )
-        }
+        
         composable("capture") {
             CaptureScreen(
-                onNavigateToReview = { path ->
-                    val encodedPath = java.net.URLEncoder.encode(path, java.nio.charset.StandardCharsets.UTF_8.toString())
-                    navController.navigate("review/$encodedPath")
-                },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onNavigateToReview = { imagePath -> 
+                    val encodedPath = android.net.Uri.encode(imagePath)
+                    navController.navigate("review?imagePath=$encodedPath") 
+                }
             )
         }
+        
         composable(
-            "review/{photoPath}",
-            arguments = listOf(androidx.navigation.navArgument("photoPath") { type = androidx.navigation.NavType.StringType })
+            route = "review?imagePath={imagePath}",
+            arguments = listOf(navArgument("imagePath") { type = NavType.StringType })
         ) { backStackEntry ->
-            val photoPath = backStackEntry.arguments?.getString("photoPath")
-            val decodedPath = photoPath?.let { java.net.URLDecoder.decode(it, java.nio.charset.StandardCharsets.UTF_8.toString()) }
-            val reviewViewModel: com.parcelpay.app.viewmodel.ReviewViewModel = viewModel()
-            val historyViewModel: com.parcelpay.app.viewmodel.HistoryViewModel = viewModel()
-            val settingsViewModel: com.parcelpay.app.viewmodel.SettingsViewModel = viewModel()
-            
-            val context = androidx.compose.ui.platform.LocalContext.current
-            val qrImagePath by settingsViewModel.qrImagePath.collectAsState(initial = null)
-            
+            val imagePath = backStackEntry.arguments?.getString("imagePath") ?: ""
+            val reviewViewModel: ReviewViewModel = viewModel()
             ReviewScreen(
-                photoPath = decodedPath,
+                photoPath = imagePath,
                 viewModel = reviewViewModel,
-                onSend = { phoneNumber ->
-                    if (decodedPath != null) {
-                        historyViewModel.addParcel(decodedPath, phoneNumber)
-                        com.parcelpay.app.ui.screens.sendViaWhatsApp(context, decodedPath, qrImagePath, phoneNumber)
+                onBack = { navController.popBackStack() },
+                onSend = { phone ->
+                    reviewViewModel.saveParcelToSupabase(phone)
+                    navController.navigate("home") {
+                        popUpTo("home") { inclusive = false }
                     }
-                    navController.navigate("home") { popUpTo("home") { inclusive = true } }
-                },
-                onBack = { navController.popBackStack() }
+                }
             )
         }
+        
         composable("settings") {
             val settingsViewModel: com.parcelpay.app.viewmodel.SettingsViewModel = viewModel()
             SettingsScreen(

@@ -89,6 +89,8 @@ fun CameraPreviewScreen(
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
     
     var capturedPhotoPath by remember { mutableStateOf<String?>(null) }
+    var isFlashlightOn by remember { mutableStateOf(false) }
+    var camera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
 
     if (capturedPhotoPath != null) {
         Column(
@@ -129,9 +131,10 @@ fun CameraPreviewScreen(
                         val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
                         try {
                             cameraProvider.unbindAll()
-                            cameraProvider.bindToLifecycle(
+                            camera = cameraProvider.bindToLifecycle(
                                 lifecycleOwner, cameraSelector, preview, imageCapture
                             )
+                            camera?.cameraControl?.enableTorch(isFlashlightOn)
                         } catch (e: Exception) {
                             Log.e("CameraPreview", "Binding failed", e)
                         }
@@ -145,6 +148,16 @@ fun CameraPreviewScreen(
                 modifier = Modifier.align(Alignment.TopStart).padding(32.dp)
             ) {
                 Text("Back", color = Color.White)
+            }
+            
+            IconButton(
+                onClick = {
+                    isFlashlightOn = !isFlashlightOn
+                    camera?.cameraControl?.enableTorch(isFlashlightOn)
+                },
+                modifier = Modifier.align(Alignment.TopEnd).padding(32.dp)
+            ) {
+                Text(if (isFlashlightOn) "Flash: ON" else "Flash: OFF", color = Color.White)
             }
             
             Button(

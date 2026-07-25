@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import com.parcelpay.app.ui.navigation.ParcelPayNavGraph
+import com.parcelpay.app.ui.navigation.NavGraph
 import com.parcelpay.app.ui.theme.ParcelPayTheme
 
 class MainActivity : ComponentActivity() {
@@ -13,7 +13,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             ParcelPayTheme {
-                ParcelPayNavGraph()
+                NavGraph()
             }
         }
     }

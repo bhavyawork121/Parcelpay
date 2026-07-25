@@ -2,10 +2,57 @@ package com.parcelpay.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val PrimaryLight = Color(0xFF1565C0)
-val SecondaryLight = Color(0xFF00897B)
-val TertiaryLight = Color(0xFF0277BD)
+// Clean Light Mode Palette
+val md_theme_light_primary = Color(0xFF4F46E5) // Indigo
+val md_theme_light_onPrimary = Color(0xFFFFFFFF)
+val md_theme_light_primaryContainer = Color(0xFFEEF2FF)
+val md_theme_light_onPrimaryContainer = Color(0xFF312E81)
 
-val PrimaryDark = Color(0xFF90CAF9)
-val SecondaryDark = Color(0xFF80CBC4)
-val TertiaryDark = Color(0xFF81D4FA)
+val md_theme_light_secondary = Color(0xFF64748B) // Slate
+val md_theme_light_onSecondary = Color(0xFFFFFFFF)
+val md_theme_light_secondaryContainer = Color(0xFFF1F5F9)
+val md_theme_light_onSecondaryContainer = Color(0xFF0F172A)
+
+val md_theme_light_tertiary = Color(0xFF059669) // Green
+val md_theme_light_onTertiary = Color(0xFFFFFFFF)
+val md_theme_light_tertiaryContainer = Color(0xFFECFDF5)
+val md_theme_light_onTertiaryContainer = Color(0xFF064E3B)
+
+val md_theme_light_error = Color(0xFFDC2626) // Red
+val md_theme_light_errorContainer = Color(0xFFFEF2F2)
+val md_theme_light_onError = Color(0xFFFFFFFF)
+val md_theme_light_onErrorContainer = Color(0xFF7F1D1D)
+
+val md_theme_light_background = Color(0xFFF8FAFC) // Off-white
+val md_theme_light_onBackground = Color(0xFF0F172A)
+
+val md_theme_light_surface = Color(0xFFFFFFFF) // Pure white
+val md_theme_light_onSurface = Color(0xFF0F172A)
+val md_theme_light_surfaceVariant = Color(0xFFF1F5F9)
+val md_theme_light_onSurfaceVariant = Color(0xFF64748B)
+val md_theme_light_outline = Color(0xFFE2E8F0)
+
+// Fallback Dark Theme (in case system is dark, but we force light theme logic in Theme.kt)
+val md_theme_dark_primary = Color(0xFF818CF8)
+val md_theme_dark_onPrimary = Color(0xFF312E81)
+val md_theme_dark_primaryContainer = Color(0xFF4338CA)
+val md_theme_dark_onPrimaryContainer = Color(0xFFEEF2FF)
+val md_theme_dark_secondary = Color(0xFF94A3B8)
+val md_theme_dark_onSecondary = Color(0xFF0F172A)
+val md_theme_dark_secondaryContainer = Color(0xFF1E293B)
+val md_theme_dark_onSecondaryContainer = Color(0xFFF8FAFC)
+val md_theme_dark_tertiary = Color(0xFF34D399)
+val md_theme_dark_onTertiary = Color(0xFF064E3B)
+val md_theme_dark_tertiaryContainer = Color(0xFF059669)
+val md_theme_dark_onTertiaryContainer = Color(0xFFECFDF5)
+val md_theme_dark_error = Color(0xFFF87171)
+val md_theme_dark_errorContainer = Color(0xFF991B1B)
+val md_theme_dark_onError = Color(0xFF450A0A)
+val md_theme_dark_onErrorContainer = Color(0xFFFEF2F2)
+val md_theme_dark_background = Color(0xFF0F172A)
+val md_theme_dark_onBackground = Color(0xFFF8FAFC)
+val md_theme_dark_surface = Color(0xFF1E293B)
+val md_theme_dark_onSurface = Color(0xFFF8FAFC)
+val md_theme_dark_surfaceVariant = Color(0xFF334155)
+val md_theme_dark_onSurfaceVariant = Color(0xFFCBD5E1)
+val md_theme_dark_outline = Color(0xFF475569)

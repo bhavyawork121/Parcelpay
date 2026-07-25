@@ -166,47 +166,40 @@ fun ReviewScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
                 
-                var chatOpened by remember { mutableStateOf(false) }
-                
-                if (!chatOpened) {
-                    Button(
-                        onClick = { 
-                            if (isValidFormat) {
-                                val intent = android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW, 
-                                    android.net.Uri.parse("https://api.whatsapp.com/send?phone=91${uiState.enteredNumber}")
-                                )
-                                context.startActivity(intent)
-                                chatOpened = true
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        enabled = uiState.enteredNumber.isNotEmpty() && isValidFormat,
-                        shape = RoundedCornerShape(28.dp)
-                    ) {
-                        Text("Continue to Send", style = MaterialTheme.typography.titleMedium)
-                    }
-                } else {
-                    Text(
-                        "Chat opened — tap to attach & share the photos", 
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = { 
+                Button(
+                    onClick = { 
+                        if (isValidFormat && photoPath != null) {
                             coroutineScope.launch {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 showSuccess = true
+                                
+                                try {
+                                    val intent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("https://api.whatsapp.com/send?phone=91${uiState.enteredNumber}")
+                                    ).apply {
+                                        setPackage("com.whatsapp")
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("WhatsApp", "Share failed", e)
+                                    val fbIntent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW, 
+                                        android.net.Uri.parse("https://api.whatsapp.com/send?phone=91${uiState.enteredNumber}")
+                                    )
+                                    context.startActivity(fbIntent)
+                                }
+                                
                                 delay(1000)
                                 onSend(uiState.enteredNumber) 
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(28.dp)
-                    ) {
-                        Text("Share Images", style = MaterialTheme.typography.titleMedium)
-                    }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    enabled = uiState.enteredNumber.isNotEmpty() && isValidFormat,
+                    shape = RoundedCornerShape(28.dp)
+                ) {
+                    Text("Send to WhatsApp", style = MaterialTheme.typography.titleMedium)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))

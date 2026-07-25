@@ -328,19 +328,19 @@ function renderReview() {
         </div>
         ` : ''}
 
-        <div class="review-field">
-            <div class="field-label">
+        <div class="input-group">
+            <label for="reviewPhone">
                 <span class="material-symbols-outlined">phone</span>
                 Phone Number
-            </div>
+            </label>
             <input type="tel" id="reviewPhone" value="${state.review.phone}" placeholder="Enter phone number" maxlength="10">
         </div>
 
-        <div class="review-field">
-            <div class="field-label">
+        <div class="input-group">
+            <label for="reviewCod">
                 <span class="material-symbols-outlined">currency_rupee</span>
                 COD Amount (₹)
-            </div>
+            </label>
             <input type="number" id="reviewCod" value="${state.review.cod}" placeholder="Enter COD amount">
         </div>
 
@@ -476,22 +476,8 @@ function renderSettings() {
                 <span class="material-symbols-outlined">auto_awesome</span>
             </div>
             <div class="setting-info">
-                <div class="setting-title">Use Gemini AI</div>
+                <div class="setting-title">Gemini AI (Active)</div>
                 <div class="setting-subtitle">Cloud-based OCR for better accuracy</div>
-            </div>
-            <label class="toggle">
-                <input type="checkbox" id="toggleGemini" ${state.settings.useGemini ? 'checked' : ''}>
-                <span class="toggle-slider"></span>
-            </label>
-        </div>
-
-        <div class="setting-card" id="onDeviceCard" style="display: ${state.settings.useGemini ? 'none' : 'flex'}">
-            <div class="setting-icon-circle">
-                <span class="material-symbols-outlined">phone_android</span>
-            </div>
-            <div class="setting-info">
-                <div class="setting-title">On-device CRNN</div>
-                <div class="setting-subtitle">Fast, offline phone number detection</div>
             </div>
             <span class="active-badge">Active</span>
         </div>
@@ -524,14 +510,6 @@ function renderSettings() {
 
 function bindSettingsEvents() {
     document.getElementById('settingsBack')?.addEventListener('click', goBack)
-
-    document.getElementById('toggleGemini')?.addEventListener('change', (e) => {
-        state.settings.useGemini = e.target.checked
-        const onDeviceCard = document.getElementById('onDeviceCard')
-        if (onDeviceCard) {
-            onDeviceCard.style.display = e.target.checked ? 'none' : 'flex'
-        }
-    })
 
     document.getElementById('clearDataCard')?.addEventListener('click', () => {
         if (state.parcels.length === 0) {

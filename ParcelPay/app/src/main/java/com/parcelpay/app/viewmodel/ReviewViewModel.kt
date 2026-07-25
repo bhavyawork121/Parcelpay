@@ -53,41 +53,58 @@ class ReviewViewModel : ViewModel() {
                     return@launch
                 }
                 
-                val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
-                val originalImage = InputImage.fromBitmap(bitmap, 0)
+                var tfliteText = ""
+                var mlkitText = ""
                 
-                val candidates = mutableSetOf<String>()
-                var allText = ""
-                
-                // Original OCR
                 try {
+                    val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                    val originalImage = InputImage.fromBitmap(bitmap, 0)
+                    
                     val visionText = textRecognizer.process(originalImage).await()
-                    allText += visionText.text + "\n"
-                    candidates.addAll(extractPhoneNumbers(visionText.text))
+                    mlkitText = visionText.text
+                    
+                    val tfliteClient = com.parcelpay.app.utils.TfLiteOcrClient(context)
+                    
+                    for (block in visionText.textBlocks) {
+                        for (line in block.lines) {
+                            val box = line.boundingBox
+                            if (box != null) {
+                                // Crop the line from the bitmap
+                                try {
+                                    val safeLeft = Math.max(0, box.left)
+                                    val safeTop = Math.max(0, box.top)
+                                    val safeWidth = Math.min(bitmap.width - safeLeft, box.width())
+                                    val safeHeight = Math.min(bitmap.height - safeTop, box.height())
+                                    
+                                    if (safeWidth > 0 && safeHeight > 0) {
+                                        val croppedBitmap = android.graphics.Bitmap.createBitmap(
+                                            bitmap, safeLeft, safeTop, safeWidth, safeHeight
+                                        )
+                                        val customRead = tfliteClient.extractTextFromBitmap(croppedBitmap)
+                                        tfliteText += customRead + " \n"
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("ReviewViewModel", "Failed to crop box", e)
+                                }
+                            }
+                        }
+                    }
+                    tfliteClient.close()
                 } catch (e: Exception) {
-                    Log.e("ReviewViewModel", "Original OCR failed", e)
+                    Log.e("ReviewViewModel", "TFLite OCR failed", e)
                 }
 
-                // Preprocessed OCR
-                try {
-                    val preprocessedBitmap = com.parcelpay.app.utils.ImagePreprocessor.preprocessForOcr(bitmap)
-                    val enhancedImage = InputImage.fromBitmap(preprocessedBitmap, 0)
-                    val visionText2 = textRecognizer.process(enhancedImage).await()
-                    allText += visionText2.text + "\n"
-                    candidates.addAll(extractPhoneNumbers(visionText2.text))
-                } catch (e: Exception) {
-                    Log.e("ReviewViewModel", "Enhanced OCR failed", e)
-                }
-
-                val candidatesList = candidates.toList()
+                // Try extracting from both our custom model AND ML Kit's baseline to be extra safe
+                val combinedText = tfliteText + "\n" + mlkitText
+                val candidatesList = extractPhoneNumbers(combinedText)
                 if (candidatesList.isEmpty()) {
-                    // Fallback to AI API
+                    // Fallback to AI API if custom model fails to find a number
                     runAiFallback(file.absolutePath)
                 } else {
                     val defaultNumber = if (candidatesList.size == 1) candidatesList.first() else ""
                     _uiState.value = _uiState.value.copy(
                         isProcessing = false,
-                        rawText = allText,
+                        rawText = tfliteText,
                         candidates = candidatesList,
                         enteredNumber = defaultNumber
                     )
@@ -204,6 +221,35 @@ class ReviewViewModel : ViewModel() {
 
     fun updateEnteredNumber(number: String) {
         _uiState.value = _uiState.value.copy(enteredNumber = number)
+    }
+
+    fun saveParcelToSupabase(phoneNumber: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val url = "https://yogqmiqpvuhssgwnnupe.supabase.co/rest/v1/parcels"
+                val apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlvZ3FtaXFwdnVoc3Nnd25udXBlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDYxOTg5NywiZXhwIjoyMTAwMTk1ODk3fQ.8F-ob7ahbI7LEcEssA_VuoLs8fPCKZf2MC_lSey45Ns"
+                
+                val jsonPayload = JSONObject().apply {
+                    put("phone", phoneNumber)
+                }
+                
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("apikey", apiKey)
+                    .addHeader("Authorization", "Bearer $apiKey")
+                    .addHeader("Content-Type", "application/json")
+                    .post(jsonPayload.toString().toRequestBody("application/json".toMediaType()))
+                    .build()
+                    
+                okHttpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        Log.e("ReviewViewModel", "Supabase insert error: ${response.code} ${response.body?.string()}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ReviewViewModel", "Failed to insert into Supabase", e)
+            }
+        }
     }
 
     override fun onCleared() {
