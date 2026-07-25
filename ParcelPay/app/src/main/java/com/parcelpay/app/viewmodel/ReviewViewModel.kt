@@ -32,11 +32,11 @@ class ReviewViewModel : ViewModel() {
     private val okHttpClient = OkHttpClient()
 
     fun processImage(context: Context, imagePath: String, forceFallback: Boolean = false) {
-        if (_uiState.value.isProcessing || _uiState.value.isAiFallback) return
-        
+        // Always reset — never block a new scan attempt with a stale processing/fallback state
         if (forceFallback) {
             _uiState.value = _uiState.value.copy(
-                isAiFallback = true, 
+                isAiFallback = true,
+                isProcessing = false,
                 error = null,
                 candidates = emptyList(),
                 enteredNumber = "",
@@ -45,6 +45,7 @@ class ReviewViewModel : ViewModel() {
                 rawText = ""
             )
         } else {
+            // Full reset — OCR (ML Kit) is always the primary on a fresh scan
             _uiState.value = ReviewUiState(isProcessing = true)
         }
 

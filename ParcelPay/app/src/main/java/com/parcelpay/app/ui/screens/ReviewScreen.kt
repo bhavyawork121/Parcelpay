@@ -207,10 +207,11 @@ fun ReviewScreen(
                                             setPackage("com.whatsapp")
                                             putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
                                             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                                         }
                                         context.startActivity(sendIntent)
                                         onSend(uiState.enteredNumber)
-                                        step = 2 // Transition to step 2 just in case they return and need to re-share
+                                        step = 2
                                     } catch (e: Exception) {
                                         android.util.Log.e("WhatsApp", "Auto-chain failed or open chat failed", e)
                                         step = 2 // Fallback to manual Share Images
