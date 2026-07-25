@@ -35,9 +35,17 @@ class ReviewViewModel : ViewModel() {
         if (_uiState.value.isProcessing || _uiState.value.isAiFallback) return
         
         if (forceFallback) {
-            _uiState.value = _uiState.value.copy(isAiFallback = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                isAiFallback = true, 
+                error = null,
+                candidates = emptyList(),
+                enteredNumber = "",
+                recipientName = null,
+                address = null,
+                rawText = ""
+            )
         } else {
-            _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
+            _uiState.value = ReviewUiState(isProcessing = true)
         }
 
         viewModelScope.launch(Dispatchers.IO) {
